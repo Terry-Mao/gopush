@@ -34,7 +34,7 @@ redis > PUBLISH youKey "message"
 {
     "ret" : 0,
     "msg" : "ok",
-    "data : "message"
+    "data" : "message"
 }
 
 push.go has the ret define
