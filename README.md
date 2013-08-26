@@ -1,10 +1,9 @@
 ## Terry-Mao/gopush
 
-`Terry-Mao/gopush` is an push server written by golang.
+`Terry-Mao/gopush` is an push server written by golang. (redis + websocket)
 
 ## Requeriments
-golang websocket is needed
-
+regisgo and golang websocket is needed.
 ```sh
 # all platform
 # redis
@@ -33,6 +32,17 @@ $ redis > PUBLISH youKey "message"
 ```
 
 ## Protocol
+Subscribers first send a key to the gopush and will receive a json response 
+when someone publish a message to the key.
+ret:
+* 0 : ok
+* 65535 : internal error
+* 1 : authentication error
+msg:
+* error message
+data:
+* the publish message
+the reponse json examples:
 ```json
 {
     "ret" : 0,
