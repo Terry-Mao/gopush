@@ -34,14 +34,18 @@ $ redis > PUBLISH youKey "message"
 ## Protocol
 Subscribers first send a key to the gopush and will receive a json response 
 when someone publish a message to the key.
+
 ret:
 * 0 : ok
 * 65535 : internal error
 * 1 : authentication error
+
 msg:
 * error message
+
 data:
 * the publish message
+
 the reponse json examples:
 ```json
 {
