@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"runtime"
 )
 
 var (
@@ -39,6 +40,8 @@ func main() {
 		defer f.Close()
 		Log = log.New(f, "", log.LstdFlags|log.Lshortfile)
 	}
+	// Set max routine
+	runtime.GOMAXPROCS(Conf.MaxProcs)
 	// init redis
 	InitRedis()
 	// for test client

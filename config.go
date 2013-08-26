@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"flag"
 	"io/ioutil"
+	"runtime"
 )
 
 var (
@@ -24,6 +25,7 @@ type Config struct {
 	RedisTimeout       int    `json:"redis_timeout"`
 	RedisPoolSize      int    `json:"redis_poolsize"`
 	RedisMQSize        int    `json:"redis_mqsize"`
+	MaxProcs           int    `json:"max_procs"`
 }
 
 func InitConfig(file string) (*Config, error) {
@@ -42,6 +44,7 @@ func InitConfig(file string) (*Config, error) {
 		RedisTimeout:       28800,
 		RedisPoolSize:      50,
 		RedisMQSize:        20,
+		MaxProcs:           runtime.NumCPU(),
 	}
 	if err = json.Unmarshal(c, cf); err != nil {
 		Log.Printf("json.Unmarshal(\"%s\", cf) failed (%s)", string(c), err.Error())
