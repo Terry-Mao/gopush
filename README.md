@@ -39,24 +39,15 @@ the server and it will receive a json response when someone publish a message
 to the key in your `redis`.
 
 response json field:
-# ret
-* 0 : ok
-* 65535 : internal error
-* 1 : authentication error
-# msg
-* error message
-# data
-
-ret:
+### ret
 * 0 : ok
 * 65535 : internal error
 * 1 : authentication error
 
-msg:
+### msg
 * error message
 
-data:
->>>>>>> 95a1f49a0d2f9244b67e10a3f2ec3a72e20ae194
+### data
 * the publish message
 
 the reponse json examples:
