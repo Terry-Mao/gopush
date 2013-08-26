@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/http/pprof"
 	"os"
 	"runtime"
 )
@@ -49,6 +50,20 @@ func main() {
 	// sub
 	http.Handle("/sub", websocket.Handler(Subscribe))
 	Log.Printf("gopush service start.")
+	// pprof
+	if Conf.Pprof == 1 {
+		go func() {
+			profServeMux := http.NewServeMux()
+			profServeMux.HandleFunc("/debug/pprof/", pprof.Index)
+			profServeMux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+			profServeMux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+			profServeMux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+			err := http.ListenAndServe(fmt.Sprintf("%s:%d", Conf.PprofAddr, Conf.PprofPort), profServeMux)
+			if err != nil {
+				panic(err)
+			}
+		}()
+	}
 	if err := http.ListenAndServe(fmt.Sprintf("%s:%d", Conf.Addr, Conf.Port), nil); err != nil {
 		Log.Printf("http.ListenAdServe(\"%s:%d\") failed (%s)", Conf.Addr, Conf.Port, err.Error())
 		return

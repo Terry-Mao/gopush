@@ -18,6 +18,9 @@ func init() {
 type Config struct {
 	Addr               string `json:"addr"`
 	Port               int    `json:"port"`
+	Pprof              int    `json:"pprof"`
+	PprofAddr          string `json:"pprof_addr"`
+	PprofPort          int    `json:"pprof_port"`
 	LongpollingTimeout int    `json:"longpolling_timeout"`
 	Log                string `json:"log"`
 	RedisNetwork       string `json:"redis_network"`
@@ -35,8 +38,12 @@ func InitConfig(file string) (*Config, error) {
 		return nil, err
 	}
 
-	cf := &Config{Addr: "localhost",
+	cf := &Config{
+		Addr:               "localhost",
 		Port:               8080,
+		PprofAddr:          "localhost",
+		PprofPort:          8081,
+		Pprof:              1,
 		LongpollingTimeout: 300,
 		Log:                "./gopush.log",
 		RedisNetwork:       "tcp",
