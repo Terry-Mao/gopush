@@ -46,6 +46,17 @@ response json field:
 # msg
 * error message
 # data
+
+ret:
+* 0 : ok
+* 65535 : internal error
+* 1 : authentication error
+
+msg:
+* error message
+
+data:
+>>>>>>> 95a1f49a0d2f9244b67e10a3f2ec3a72e20ae194
 * the publish message
 
 the reponse json examples:
