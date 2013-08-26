@@ -6,12 +6,14 @@
 golang websocket is needed
 
 ```sh
-# all
+# all platform
+# redis
+$ go get github.com/garyburd/redigo
+# websocket
 $ go get code.google.com/p/go.net/websocket 
 ```
 
 ## Installation
-
 Just pull `Terry-Mao/gopush` from github using `go get`:
 
 ```sh
@@ -19,14 +21,15 @@ $ go get github.com/Terry-Mao/gopush
 ```
 
 ## Usage
+````go
+$ ./gopush -c ./gopush.conf
 
-```go
-sh ./gopush -c ./gopush.conf
+# open [client](http://localhost:8080/client) and send a sub key
 
-open [client](http://localhost:8080/client) and send a sub key
+$ redis-cli 
+$ redis > PUBLISH youKey "message"
 
-sh redis-cli 
-redis > PUBLISH youKey "message"
+# then your browser will alert the "message"
 ```
 
 ## Protocol
@@ -36,12 +39,9 @@ redis > PUBLISH youKey "message"
     "msg" : "ok",
     "data" : "message"
 }
-
-push.go has the ret define
 ```
 
 ## Documentation
-
 Read the `Terry-Mao/gopush` documentation from a terminal
 
 ```go
