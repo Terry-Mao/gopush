@@ -21,10 +21,12 @@ $ go get github.com/Terry-Mao/gopush
 
 ## Usage
 ```sh
+# start the gopush server
 $ ./gopush -c ./gopush.conf
 
-# open [client](http://localhost:8080/client) and send a sub key
+# open http://localhost:8080/client in browser and press the Send button
 
+# connect to your redis
 $ redis-cli 
 $ redis > PUBLISH youKey "message"
 
@@ -32,16 +34,20 @@ $ redis > PUBLISH youKey "message"
 ```
 
 ## Protocol
-Subscribers first send a key to the gopush and will receive a json response 
-when someone publish a message to the key.
-ret:
+Subscribers use `websocket` connect to the `gopush` then write a `sub key` to
+the server and it will receive a json response when someone publish a message 
+to the key in your `redis`.
+
+response json field:
+# ret
 * 0 : ok
 * 65535 : internal error
 * 1 : authentication error
-msg:
+# msg
 * error message
-data:
+# data
 * the publish message
+
 the reponse json examples:
 ```json
 {
@@ -54,7 +60,7 @@ the reponse json examples:
 ## Documentation
 Read the `Terry-Mao/gopush` documentation from a terminal
 
-```go
+```sh
 $ go doc github.com/Terry-Mao/gopush
 ```
 
