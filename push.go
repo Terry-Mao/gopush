@@ -111,7 +111,7 @@ func Subscribe(ws *websocket.Conn) {
 func netRead(ws *websocket.Conn) chan error {
 	c := make(chan error, 1)
 	// client close or network error, go routine exit
-	go func(c chan error) {
+	go func() {
 		var reply string
 		if err := websocket.Message.Receive(ws, &reply); err != nil {
 			Log.Printf("websocket.Message.Receive() failed (%s)", err.Error())
@@ -121,7 +121,7 @@ func netRead(ws *websocket.Conn) chan error {
 		}
 		// DEBUG
 		Log.Printf("netRead routine exit")
-	}(c)
+	}()
 
 	return c
 }
