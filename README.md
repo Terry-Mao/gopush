@@ -21,7 +21,7 @@ $ go get github.com/Terry-Mao/gopush
 ```
 
 ## Usage
-````go
+```sh
 $ ./gopush -c ./gopush.conf
 
 # open [client](http://localhost:8080/client) and send a sub key
