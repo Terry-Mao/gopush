@@ -29,6 +29,17 @@ sh redis-cli
 redis > PUBLISH youKey "message"
 ```
 
+## Protocol
+```json
+{
+    "ret" : 0,
+    "msg" : "ok",
+    "data : "message"
+}
+
+push.go has the ret define
+```
+
 ## Documentation
 
 Read the `Terry-Mao/gopush` documentation from a terminal
