@@ -12,7 +12,7 @@ $ go get code.google.com/p/go.net/websocket
 
 ## Installation
 
-Just pull `Terry-Mao/paint` from github using `go get`:
+Just pull `Terry-Mao/gopush` from github using `go get`:
 
 ```sh
 $ go get github.com/Terry-Mao/gopush
