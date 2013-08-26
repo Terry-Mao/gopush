@@ -1,4 +1,4 @@
-## Terry-Mao/paint
+## Terry-Mao/gopush
 
 `Terry-Mao/gopush` is an push server written by golang.
 
