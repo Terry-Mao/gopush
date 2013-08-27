@@ -33,6 +33,68 @@ $ redis > PUBLISH youKey "message"
 
 # then your browser will alert the "message"
 ```
+a simple java client example
+```java
+import java.io.IOException;
+import java.util.concurrent.ExecutionException;
+
+import com.ning.http.client.*;
+import com.ning.http.client.websocket.*;
+
+public class test {
+
+	/**
+	 * @param args
+	 * @throws IOException
+	 * @throws ExecutionException
+	 * @throws InterruptedException
+	 */
+	public static void main(String[] args) throws InterruptedException,
+			ExecutionException, IOException {
+
+		AsyncHttpClient c = new AsyncHttpClient();
+
+		WebSocket websocket = c
+				.prepareGet("ws://10.33.30.66:8080/sub")
+				.execute(
+						new WebSocketUpgradeHandler.Builder()
+								.addWebSocketListener(
+										new WebSocketTextListener() {
+
+											@Override
+											public void onMessage(String message) {
+												System.out.println(message);
+											}
+
+											@Override
+											public void onOpen(
+													WebSocket websocket) {
+												System.out.println("ok");
+											}
+
+											public void onClose(
+													WebSocket websocket) {
+											}
+
+											@Override
+											public void onError(Throwable t) {
+											}
+
+											@Override
+											public void onFragment(String arg0,
+													boolean arg1) {
+												// TODO Auto-generated method
+												// stub
+
+											}
+										}).build()).get();
+
+		websocket.sendTextMessage("Terry-Mao");
+		Thread.sleep(100000000);
+	}
+}
+
+```
 
 ## Protocol
 Subscribers use `websocket` connect to the `gopush` then write a `sub key` to
