@@ -24,9 +24,10 @@ $ go get github.com/Terry-Mao/gopush
 # start the gopush server
 $ ./gopush -c ./gopush.conf
 
-# open http://localhost:8080/client in browser and press the Send button
-
-# connect to your redis
+# 1. open http://localhost:8080/client in browser and press the Send button
+# 2. you can use curl
+$ curl -d "test" http://localhost:8080/pub?key=yourkey
+# 3. you can use redis 
 $ redis-cli 
 $ redis > PUBLISH youKey "message"
 
