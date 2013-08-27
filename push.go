@@ -4,6 +4,8 @@ import (
 	"code.google.com/p/go.net/websocket"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"net/http"
 	"runtime/debug"
 	"time"
 )
@@ -45,8 +47,26 @@ func init() {
 	pusher = &DefPusher{}
 }
 
-func Publish() {
-	//TODO
+func Publish(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.Error(w, "Method Not Allowed", 405)
+	}
+
+	params := r.URL.Query()
+	key := params.Get("key")
+	if key == "" {
+		http.Error(w, "must specified query parameter ?key=your_pub_key", 405)
+	}
+
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "read body error", 500)
+	}
+
+	// send to redis
+	if err = RedisPub(key, string(body)); err != nil {
+		http.Error(w, "interlanl redis error", 500)
+	}
 }
 
 func SetPusher(p Pusher) {

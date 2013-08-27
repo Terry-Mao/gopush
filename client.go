@@ -6,7 +6,7 @@ import (
 	"net/http"
 )
 
-func client(w http.ResponseWriter, r *http.Request) {
+func Client(w http.ResponseWriter, r *http.Request) {
 	html := fmt.Sprintf(`
 <!doctype html>
 <html>

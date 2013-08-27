@@ -46,24 +46,40 @@ func main() {
 	// init redis
 	InitRedis()
 	// for test client
-	http.HandleFunc("/client", client)
+	http.HandleFunc("/client", Client)
 	// sub
 	http.Handle("/sub", websocket.Handler(Subscribe))
 	Log.Printf("gopush service start.")
 	// pprof
 	if Conf.Pprof == 1 {
+		if Conf.PprofAddr != Conf.Addr || Conf.PprofPort != Conf.Port {
+			go func() {
+				profServeMux := http.NewServeMux()
+				profServeMux.HandleFunc("/debug/pprof/", pprof.Index)
+				profServeMux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+				profServeMux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+				profServeMux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+				err := http.ListenAndServe(fmt.Sprintf("%s:%d", Conf.PprofAddr, Conf.PprofPort), profServeMux)
+				if err != nil {
+					panic(err)
+				}
+			}()
+		}
+	}
+	// publish
+	if Conf.PubAddr != Conf.Addr || Conf.PubPort != Conf.Port {
 		go func() {
-			profServeMux := http.NewServeMux()
-			profServeMux.HandleFunc("/debug/pprof/", pprof.Index)
-			profServeMux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
-			profServeMux.HandleFunc("/debug/pprof/profile", pprof.Profile)
-			profServeMux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
-			err := http.ListenAndServe(fmt.Sprintf("%s:%d", Conf.PprofAddr, Conf.PprofPort), profServeMux)
+			pubServeMux := http.NewServeMux()
+			pubServeMux.HandleFunc("/pub", Publish)
+			err := http.ListenAndServe(fmt.Sprintf("%s:%d", Conf.PubAddr, Conf.PubPort), pubServeMux)
 			if err != nil {
 				panic(err)
 			}
 		}()
+	} else {
+		http.HandleFunc("/pub", Publish)
 	}
+	// start listen and pending here
 	if err := http.ListenAndServe(fmt.Sprintf("%s:%d", Conf.Addr, Conf.Port), nil); err != nil {
 		Log.Printf("http.ListenAdServe(\"%s:%d\") failed (%s)", Conf.Addr, Conf.Port, err.Error())
 		return

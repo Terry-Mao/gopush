@@ -10,6 +10,10 @@ var (
 	redisPool *redis.Pool
 )
 
+const (
+	mqPrefix = "Q"
+)
+
 func init() {
 }
 
@@ -101,11 +105,12 @@ func RedisSub(key string) (mq chan interface{}, psc redis.PubSubConn) {
 }
 
 func redisQueue(c redis.Conn, key string, mq chan interface{}) error {
+	key = mqPrefix + key
 	// check message queue
 	for {
 		reply, err := c.Do("LPOP", key)
 		if err != nil {
-			Log.Printf("c.Do(\"LPOP\", \"%s\") failed (%s)", key, err.Error())
+			Log.Printf("c.Do(\"LPOP\", \"%s\") failed (%s)", mqPrefix+key, err.Error())
 			return err
 		}
 
@@ -121,6 +126,77 @@ func redisQueue(c redis.Conn, key string, mq chan interface{}) error {
 		}
 
 		mq <- msg
+	}
+
+	return nil
+}
+
+func RedisPub(key, msg string) error {
+	qkey := mqPrefix + key
+	c := redisPool.Get()
+	defer c.Close()
+	reply, err := c.Do("PUBLISH", key, msg)
+	if err != nil {
+		Log.Printf("c.Do(\"PUBLISH\", \"%s\", \"%s\") failed (%s)", key, msg, err.Error())
+		return err
+	}
+
+	active, err := redis.Int(reply, nil)
+	if err != nil {
+		Log.Printf("redis.Int() failed (%s)", err.Error())
+		return err
+	}
+
+	// send to message queue
+	if active == 0 {
+		// RPUSH, LTRIM, EXPIRE
+		reply, err = c.Do("RPUSH", qkey, msg)
+		if err != nil {
+			Log.Printf("c.Do(\"RPUSH\", \"%s\", \"%s\") failed (%s)", qkey, msg, err.Error())
+			return err
+		}
+
+		qc, err := redis.Int(reply, nil)
+		if err != nil {
+			Log.Printf("redis.Int() failed (%s)", err.Error())
+			return err
+		}
+		// truncate old message
+		if qc > Conf.RedisMQSize {
+			reply, err = c.Do("LTRIM", qkey, 1, -1)
+			if err != nil {
+				Log.Printf("c.Do(\"LTRIM\", \"%s\", 1, -1) failed (%s)", qkey, err.Error())
+				return err
+			}
+
+			status, err := redis.String(reply, nil)
+			if err != nil {
+				Log.Printf("redis.String() failed (%s)", err.Error())
+				return err
+			}
+
+			if status != "OK" {
+				return fmt.Errorf("LTRIM failed")
+			}
+		}
+		// set message timedout
+		if Conf.MessageTimeout > 0 {
+			reply, err = c.Do("EXPIRE", qkey, Conf.MessageTimeout)
+			if err != nil {
+				Log.Printf("c.Do(\"EXPIRE\", \"%s\", %d) failed (%s)", qkey, Conf.MessageTimeout, err.Error())
+				return err
+			}
+
+			status, err := redis.Int(reply, nil)
+			if err != nil {
+				Log.Printf("redis.String() failed (%s)", err.Error())
+				return err
+			}
+
+			if status != 1 {
+				return fmt.Errorf("EXPIRE failed")
+			}
+		}
 	}
 
 	return nil
