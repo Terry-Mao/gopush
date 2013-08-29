@@ -80,9 +80,10 @@ func RedisSub(key string) (mq chan interface{}, psc redis.PubSubConn) {
 	}
 
 	go func() {
+        // DEBUG
+        Log.Printf("redis routine start")
 		// DEBUG
 		defer Log.Printf("redis routine exit")
-		defer psc.Close()
 		for {
 			switch n := psc.Receive().(type) {
 			case redis.Message:
@@ -91,7 +92,7 @@ func RedisSub(key string) (mq chan interface{}, psc redis.PubSubConn) {
 				mq <- string(n.Data)
 			case redis.Subscription:
 				// DEBUG
-				// Log.Printf("redis UnSubscrption")
+				Log.Printf("redis UnSubscrption")
 				return
 			case error:
 				Log.Printf("psc.Receive() failed (%s)", n.Error())
