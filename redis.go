@@ -42,24 +42,22 @@ func RedisUnSub(key string, psc redis.PubSubConn) error {
 	return nil
 }
 
-func RedisSub(key string) (mq chan interface{}, psc redis.PubSubConn) {
-	mq = make(chan interface{}, Conf.RedisMQSize)
+func RedisSub(key string) (chan interface{}, redis.PubSubConn, error) {
+	mq := make(chan interface{}, Conf.RedisMQSize)
 	c := redisPool.Get()
 	defer c.Close()
 	pc, err := redis.Dial(Conf.RedisNetwork, Conf.RedisAddr)
 	if err != nil {
 		Log.Printf("redis.Dial(\"%s\", \"%s\") failed (%s)", Conf.RedisNetwork, Conf.RedisAddr, err.Error())
-		mq <- err
-		return
+		return nil, redis.PubSubConn{}, err
 	}
 
-	psc = redis.PubSubConn{pc}
+	psc := redis.PubSubConn{pc}
 	// check queue
 	err = redisQueue(c, key, mq)
 	if err != nil {
 		Log.Printf("redisQueue failed (%s)", err.Error())
-		mq <- err
-		return
+		return nil, redis.PubSubConn{}, err
 	}
 
 	// subscribe
@@ -67,16 +65,14 @@ func RedisSub(key string) (mq chan interface{}, psc redis.PubSubConn) {
 	n := psc.Receive()
 	if _, ok := n.(redis.Subscription); !ok {
 		Log.Printf("init sub must redis.Subscription")
-		mq <- fmt.Errorf("first sub must init")
-		return
+		return nil, redis.PubSubConn{}, fmt.Errorf("first sub must init")
 	}
 
 	// double check
 	err = redisQueue(c, key, mq)
 	if err != nil {
 		Log.Printf("redisQueue failed (%s)", err.Error())
-		mq <- err
-		return
+        return nil, redis.PubSubConn{}, err
 	}
 
 	go func() {
@@ -102,7 +98,7 @@ func RedisSub(key string) (mq chan interface{}, psc redis.PubSubConn) {
 		}
 	}()
 
-	return
+	return mq, psc, nil
 }
 
 func redisQueue(c redis.Conn, key string, mq chan interface{}) error {

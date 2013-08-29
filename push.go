@@ -105,7 +105,12 @@ func Subscribe(ws *websocket.Conn) {
 	key = pusher.Key(key)
 	// create a routine wait for client read(only closed or error) return a channel
 	netC := netRead(ws)
-	redisC, psc := RedisSub(key)
+	redisC, psc, err := RedisSub(key)
+    if err != nil {
+        Log.Printf("RedisSub(\"%s\") failed (%s)", key, err.Error())
+        return
+    }
+
 	defer RedisUnSub(key, psc)
 	for {
 		select {
