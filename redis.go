@@ -62,8 +62,7 @@ func RedisSub(key string) (chan interface{}, redis.PubSubConn, error) {
 
 	// subscribe
 	psc.Subscribe(key)
-	n := psc.Receive()
-	if _, ok := n.(redis.Subscription); !ok {
+	if _, ok := psc.Receive().(redis.Subscription); !ok {
 		Log.Printf("init sub must redis.Subscription")
 		return nil, redis.PubSubConn{}, fmt.Errorf("first sub must init")
 	}
@@ -72,15 +71,15 @@ func RedisSub(key string) (chan interface{}, redis.PubSubConn, error) {
 	err = redisQueue(c, key, mq)
 	if err != nil {
 		Log.Printf("redisQueue failed (%s)", err.Error())
-        return nil, redis.PubSubConn{}, err
+		return nil, redis.PubSubConn{}, err
 	}
 
 	go func() {
-        // DEBUG
-        Log.Printf("redis routine start")
+		// DEBUG
+		Log.Printf("redis routine start")
 		// DEBUG
 		defer Log.Printf("redis routine exit")
-        defer psc.Close()
+		defer psc.Close()
 		for {
 			switch n := psc.Receive().(type) {
 			case redis.Message:

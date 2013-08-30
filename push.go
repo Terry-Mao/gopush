@@ -106,10 +106,10 @@ func Subscribe(ws *websocket.Conn) {
 	// create a routine wait for client read(only closed or error) return a channel
 	netC := netRead(ws)
 	redisC, psc, err := RedisSub(key)
-    if err != nil {
-        Log.Printf("RedisSub(\"%s\") failed (%s)", key, err.Error())
-        return
-    }
+	if err != nil {
+		Log.Printf("RedisSub(\"%s\") failed (%s)", key, err.Error())
+		return
+	}
 
 	defer RedisUnSub(key, psc)
 	for {
@@ -118,15 +118,15 @@ func Subscribe(ws *websocket.Conn) {
 			Log.Printf("websocket.Message.Receive faild (%s)", err.Error())
 			return
 		case msg := <-redisC:
-			if  rmsg, ok := msg.(string); ok {
+			if rmsg, ok := msg.(string); ok {
 				result["data"] = rmsg
 				if err = responseWriter(ws, OK, result); err != nil {
 					Log.Printf("responseWriter failed (%s)", err.Error())
-                    // Restore the unsent message
-                    if err = RedisPub(key, rmsg); err != nil {
-                        Log.Printf("RedisPub(\"%s\", \"%s\") failed", key, msg)
-                        return
-                    }
+					// Restore the unsent message
+					if err = RedisPub(key, rmsg); err != nil {
+						Log.Printf("RedisPub(\"%s\", \"%s\") failed", key, msg)
+						return
+					}
 
 					return
 				}
@@ -135,9 +135,9 @@ func Subscribe(ws *websocket.Conn) {
 				Log.Printf("Subscribe() failed (%s)", err.Error())
 				return
 			} else {
-                Log.Printf("Unknown msg in RedisSub")
-                return
-            }
+				Log.Printf("Unknown msg in RedisSub")
+				return
+			}
 		}
 	}
 }
