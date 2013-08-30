@@ -122,6 +122,12 @@ func Subscribe(ws *websocket.Conn) {
 				result["data"] = msg
 				if err = responseWriter(ws, OK, result); err != nil {
 					Log.Printf("responseWriter failed (%s)", err.Error())
+                    // Restore the unsent message
+                    if err = RedisPub(key, msg); err != nil {
+                        Log.Printf("RedisPub(\"%s\", \"%s\") failed", key, msg)
+                        return
+                    }
+
 					return
 				}
 			} else {
