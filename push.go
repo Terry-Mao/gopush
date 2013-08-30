@@ -118,23 +118,26 @@ func Subscribe(ws *websocket.Conn) {
 			Log.Printf("websocket.Message.Receive faild (%s)", err.Error())
 			return
 		case msg := <-redisC:
-			if err, ok := msg.(error); !ok {
-				result["data"] = msg
+			if  rmsg, ok := msg.(string); ok {
+				result["data"] = rmsg
 				if err = responseWriter(ws, OK, result); err != nil {
 					Log.Printf("responseWriter failed (%s)", err.Error())
                     // Restore the unsent message
-                    if err = RedisPub(key, msg); err != nil {
+                    if err = RedisPub(key, rmsg); err != nil {
                         Log.Printf("RedisPub(\"%s\", \"%s\") failed", key, msg)
                         return
                     }
 
 					return
 				}
-			} else {
+			} else if err, ok := msg.(error); ok {
 				// DEBUG
 				Log.Printf("Subscribe() failed (%s)", err.Error())
 				return
-			}
+			} else {
+                Log.Printf("Unknown msg in RedisSub")
+                return
+            }
 		}
 	}
 }
