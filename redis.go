@@ -80,6 +80,7 @@ func RedisSub(key string) (chan interface{}, redis.PubSubConn, error) {
         Log.Printf("redis routine start")
 		// DEBUG
 		defer Log.Printf("redis routine exit")
+        defer psc.Close()
 		for {
 			switch n := psc.Receive().(type) {
 			case redis.Message:
