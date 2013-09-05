@@ -80,6 +80,12 @@ func Subscribe(ws *websocket.Conn) {
 	)
 
 	defer recoverFunc()
+    // cleanup on server side
+    defer func() {
+        if err := ws.Close(); err != nil {
+            Log.Printf("wc.Close() failed (%s)", err.Error())
+        }
+    }()
 	// set read deadline
 	err := ws.SetReadDeadline(time.Now().Add(time.Duration(Conf.LongpollingTimeout) * time.Second))
 	if err != nil {
