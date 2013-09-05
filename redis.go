@@ -103,7 +103,11 @@ func RedisSub(key string) (chan interface{}, redis.PubSubConn, error) {
 
 func redisQueue(c redis.Conn, key string, mq chan interface{}) error {
 	key = mqPrefix + key
-    i := 0
+    // refresh message timedout
+    if err := redisExpire(c, key); err != nil {
+        Log.Printf("redisExpire(c, \"%s\") failed (%s)", key, err.Error())
+        return err
+    }
 	// check message queue
 	for {
 		reply, err := c.Do("LPOP", key)
@@ -123,15 +127,7 @@ func redisQueue(c redis.Conn, key string, mq chan interface{}) error {
 		}
 
 		mq <- msg
-        i = i + 1
 	}
-    // refresh message timedout
-    if i > 0 {
-        if err := redisExpire(c, key); err != nil {
-            Log.Printf("redisExpire(c, \"%s\") failed (%s)", key, err.Error())
-            return err
-        }
-    }
 
 	return nil
 }
@@ -195,20 +191,10 @@ func RedisPub(key, msg string) error {
 
 func redisExpire(c redis.Conn, key string) error {
     if Conf.MessageTimeout > 0 {
-        reply, err := c.Do("EXPIRE", key, Conf.MessageTimeout)
+        _, err := c.Do("EXPIRE", key, Conf.MessageTimeout)
         if err != nil {
             Log.Printf("c.Do(\"EXPIRE\", \"%s\", %d) failed (%s)", key, Conf.MessageTimeout, err.Error())
             return err
-        }
-
-        status, err := redis.Int(reply, nil)
-        if err != nil {
-            Log.Printf("redis.String() failed (%s)", err.Error())
-            return err
-        }
-
-        if status != 1 {
-            return fmt.Errorf("EXPIRE failed, result = %d", status)
         }
     }
 
