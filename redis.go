@@ -261,6 +261,9 @@ func redisLTrim(c redis.Conn, qkey string) error {
 	return nil
 }
 
+// Integer reply, specifically:
+// 1 if field is a new field in the hash and value was set.
+// 0 if field already exists in the hash and no operation was performed.
 func RedisHSetnx(key, field, value string) (int, error) {
 	c := redisPool.Get()
 	defer c.Close()
