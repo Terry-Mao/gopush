@@ -11,7 +11,8 @@ var (
 )
 
 const (
-	mqPrefix = "Q"
+	mqPrefix     = "Q"
+	ConnectedKey = "Connected"
 )
 
 func init() {
@@ -59,14 +60,12 @@ func RedisSub(key string) (chan interface{}, redis.PubSubConn, error) {
 		Log.Printf("redisQueue failed (%s)", err.Error())
 		return nil, redis.PubSubConn{}, err
 	}
-
 	// subscribe
 	psc.Subscribe(key)
 	if _, ok := psc.Receive().(redis.Subscription); !ok {
 		Log.Printf("init sub must redis.Subscription")
 		return nil, redis.PubSubConn{}, fmt.Errorf("first sub must init")
 	}
-
 	// double check
 	err = redisQueue(c, key, mq)
 	if err != nil {
@@ -103,11 +102,11 @@ func RedisSub(key string) (chan interface{}, redis.PubSubConn, error) {
 
 func redisQueue(c redis.Conn, key string, mq chan interface{}) error {
 	key = mqPrefix + key
-    // refresh message timedout
-    if err := redisExpire(c, key); err != nil {
-        Log.Printf("redisExpire(c, \"%s\") failed (%s)", key, err.Error())
-        return err
-    }
+	// refresh message timedout
+	if err := redisExpire(c, key); err != nil {
+		Log.Printf("redisExpire(c, \"%s\") failed (%s)", key, err.Error())
+		return err
+	}
 	// check message queue
 	for {
 		reply, err := c.Do("LPOP", key)
@@ -132,6 +131,32 @@ func redisQueue(c redis.Conn, key string, mq chan interface{}) error {
 	return nil
 }
 
+func RedisRestore(key, msg string) error {
+	qkey := mqPrefix + key
+	c := redisPool.Get()
+	defer c.Close()
+	// RPUSH, LTRIM, EXPIRE
+	qc, err := redisLPush(c, qkey, msg)
+	if err != nil {
+		Log.Printf("redisLPush(c, \"%s\", \"%s\") failed (%s)", qkey, msg, err.Error())
+		return err
+	}
+	// truncate old message
+	if qc > Conf.RedisMQSize {
+		if err = redisLTrim(c, qkey); err != nil {
+			Log.Printf("redisLTrim(c, \"%s\") failed (%s)", qkey, err.Error())
+			return err
+		}
+	}
+	// set message timedout
+	if err = redisExpire(c, qkey); err != nil {
+		Log.Printf("redisExpire(c, \"%s\") failed (%s)", qkey, err.Error())
+		return err
+	}
+
+	return nil
+}
+
 func RedisPub(key, msg string) error {
 	qkey := mqPrefix + key
 	c := redisPool.Get()
@@ -150,53 +175,136 @@ func RedisPub(key, msg string) error {
 	// send to message queue
 	if active == 0 {
 		// RPUSH, LTRIM, EXPIRE
-		reply, err = c.Do("RPUSH", qkey, msg)
+		qc, err := redisRPush(c, qkey, msg)
 		if err != nil {
-			Log.Printf("c.Do(\"RPUSH\", \"%s\", \"%s\") failed (%s)", qkey, msg, err.Error())
-			return err
-		}
-
-		qc, err := redis.Int(reply, nil)
-		if err != nil {
-			Log.Printf("redis.Int() failed (%s)", err.Error())
+			Log.Printf("redisRPush(c, \"%s\", \"%s\") failed (%s)", qkey, msg, err.Error())
 			return err
 		}
 		// truncate old message
 		if qc > Conf.RedisMQSize {
-			reply, err = c.Do("LTRIM", qkey, 1, -1)
-			if err != nil {
-				Log.Printf("c.Do(\"LTRIM\", \"%s\", 1, -1) failed (%s)", qkey, err.Error())
+			if err = redisLTrim(c, qkey); err != nil {
+				Log.Printf("redisLTrim(c, \"%s\") failed (%s)", qkey, err.Error())
 				return err
-			}
-
-			status, err := redis.String(reply, nil)
-			if err != nil {
-				Log.Printf("redis.String() failed (%s)", err.Error())
-				return err
-			}
-
-			if status != "OK" {
-				return fmt.Errorf("LTRIM failed")
 			}
 		}
 		// set message timedout
-        if err = redisExpire(c, qkey); err != nil {
-            Log.Printf("redisExpire(c, \"%s\") failed (%s)", qkey, err.Error())
-            return err
-        }
+		if err = redisExpire(c, qkey); err != nil {
+			Log.Printf("redisExpire(c, \"%s\") failed (%s)", qkey, err.Error())
+			return err
+		}
 	}
 
 	return nil
 }
 
 func redisExpire(c redis.Conn, key string) error {
-    if Conf.MessageTimeout > 0 {
-        _, err := c.Do("EXPIRE", key, Conf.MessageTimeout)
-        if err != nil {
-            Log.Printf("c.Do(\"EXPIRE\", \"%s\", %d) failed (%s)", key, Conf.MessageTimeout, err.Error())
-            return err
-        }
-    }
+	if Conf.MessageTimeout > 0 {
+		_, err := c.Do("EXPIRE", key, Conf.MessageTimeout)
+		if err != nil {
+			Log.Printf("c.Do(\"EXPIRE\", \"%s\", %d) failed (%s)", key, Conf.MessageTimeout, err.Error())
+			return err
+		}
+	}
 
-    return nil
+	return nil
+}
+
+func redisRPush(c redis.Conn, qkey, msg string) (int, error) {
+	reply, err := c.Do("RPUSH", qkey, msg)
+	if err != nil {
+		Log.Printf("c.Do(\"RPUSH\", \"%s\", \"%s\") failed (%s)", qkey, msg, err.Error())
+		return 0, err
+	}
+
+	qc, err := redis.Int(reply, nil)
+	if err != nil {
+		Log.Printf("redis.Int() failed (%s)", err.Error())
+		return 0, err
+	}
+
+	return qc, nil
+}
+
+func redisLPush(c redis.Conn, qkey, msg string) (int, error) {
+	reply, err := c.Do("LPUSH", qkey, msg)
+	if err != nil {
+		Log.Printf("c.Do(\"LPUSH\", \"%s\", \"%s\") failed (%s)", qkey, msg, err.Error())
+		return 0, err
+	}
+
+	qc, err := redis.Int(reply, nil)
+	if err != nil {
+		Log.Printf("redis.Int() failed (%s)", err.Error())
+		return 0, err
+	}
+
+	return qc, nil
+}
+
+func redisLTrim(c redis.Conn, qkey string) error {
+	reply, err := c.Do("LTRIM", qkey, 1, -1)
+	if err != nil {
+		Log.Printf("c.Do(\"LTRIM\", \"%s\", 1, -1) failed (%s)", qkey, err.Error())
+		return err
+	}
+
+	status, err := redis.String(reply, nil)
+	if err != nil {
+		Log.Printf("redis.String() failed (%s)", err.Error())
+		return err
+	}
+
+	if status != "OK" {
+		return fmt.Errorf("LTRIM failed")
+	}
+
+	return nil
+}
+
+func RedisHSetnx(key, field, value string) (int, error) {
+	c := redisPool.Get()
+	defer c.Close()
+	reply, err := c.Do("HSETNX", key, field, value)
+	if err != nil {
+		Log.Printf("c.Do(\"HSETNX\", \"%s\", \"%s\", \"%s\") failed (%s)", key, field, value, err.Error())
+		return 0, err
+	}
+
+	v, err := redis.Int(reply, nil)
+	if err != nil {
+		Log.Printf("redis.Int() failed (%s)", err.Error())
+		return 0, err
+	}
+
+	return v, nil
+}
+
+func RedisHExists(key, field string) (int, error) {
+	c := redisPool.Get()
+	defer c.Close()
+	reply, err := c.Do("HEXISTS", key, field)
+	if err != nil {
+		Log.Printf("c.Do(\"HEXISTS\", \"%s\") failed (%s)", key, err.Error())
+		return 0, err
+	}
+
+	v, err := redis.Int(reply, nil)
+	if err != nil {
+		Log.Printf("redis.Int() failed (%s)", err.Error())
+		return 0, err
+	}
+
+	return v, nil
+}
+
+func RedisHDel(key, field string) error {
+	c := redisPool.Get()
+	defer c.Close()
+	_, err := c.Do("HDEL", key, field)
+	if err != nil {
+		Log.Printf("c.Do(\"HDEL\", \"%s\", \"%s\") failed (%s)", key, field, err.Error())
+		return err
+	}
+
+	return nil
 }

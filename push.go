@@ -14,9 +14,11 @@ const (
 	OK             = 0
 	InternalErr    = 65535
 	AuthErr        = 1
+	MultiCliErr    = 2
 	OKStr          = "OK"
 	InternalErrStr = "Internal Exception"
 	AuthErrStr     = "Authentication Exception"
+	MultiCliStr    = "Mutiple Client Connected Exception"
 )
 
 var (
@@ -43,6 +45,7 @@ func init() {
 	errMsg[OK] = OKStr
 	errMsg[InternalErr] = InternalErrStr
 	errMsg[AuthErr] = AuthErrStr
+	errMsg[MultiCliErr] = MultiCliStr
 
 	pusher = &DefPusher{}
 }
@@ -62,7 +65,6 @@ func Publish(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, "read body error", 500)
 	}
-
 	// send to redis
 	if err = RedisPub(key, string(body)); err != nil {
 		http.Error(w, "interlanl redis error", 500)
@@ -80,12 +82,12 @@ func Subscribe(ws *websocket.Conn) {
 	)
 
 	defer recoverFunc()
-    // cleanup on server side
-    defer func() {
-        if err := ws.Close(); err != nil {
-            Log.Printf("wc.Close() failed (%s)", err.Error())
-        }
-    }()
+	// cleanup on server side
+	defer func() {
+		if err := ws.Close(); err != nil {
+			Log.Printf("wc.Close() failed (%s)", err.Error())
+		}
+	}()
 	// set read deadline
 	err := ws.SetReadDeadline(time.Now().Add(time.Duration(Conf.LongpollingTimeout) * time.Second))
 	if err != nil {
@@ -97,26 +99,82 @@ func Subscribe(ws *websocket.Conn) {
 		Log.Printf("websocket.Message.Receive failed (%s)", err.Error())
 		if err = responseWriter(ws, InternalErr, result); err != nil {
 			Log.Printf("responseWriter failed (%s)", err.Error())
-			return
 		}
+
+		return
 	}
 	// Auth
 	if !pusher.Auth(key) {
 		if err = responseWriter(ws, AuthErr, result); err != nil {
 			Log.Printf("responseWriter failed (%s)", err.Error())
-			return
 		}
+
+		return
 	}
 	// Generate Key
 	key = pusher.Key(key)
-    // redis routine for receive pub message or error
+	// check multi cli connected
+	exists, err := RedisHExists(ConnectedKey, key)
+	if err != nil {
+		Log.Printf("RedisHExists(\"%s\", \"%s\") failed (%s)", ConnectedKey, key, err.Error())
+		if err = responseWriter(ws, InternalErr, result); err != nil {
+			Log.Printf("responseWriter failed (%s)", err.Error())
+		}
+
+		return
+	}
+
+	if exists == 1 {
+		Log.Printf("key : %s already has a client sub to", key)
+		if err = responseWriter(ws, MultiCliErr, result); err != nil {
+			Log.Printf("responseWriter failed (%s)", err.Error())
+		}
+
+		return
+	}
+	// set connected flag
+	cliNum, err := RedisHSetnx(ConnectedKey, key, "")
+	if err != nil {
+		Log.Printf("RedisHSetnx(\"%s\", \"%s\", \"\") failed (%s)", ConnectedKey, key, err.Error())
+		if err = responseWriter(ws, InternalErr, result); err != nil {
+			Log.Printf("responseWriter failed (%s)", err.Error())
+		}
+
+		return
+	}
+
+	if cliNum == 0 {
+		Log.Printf("key : %s already has a client sub to", key)
+		if err = responseWriter(ws, MultiCliErr, result); err != nil {
+			Log.Printf("responseWriter failed (%s)", err.Error())
+		}
+
+		return
+	}
+
+	defer func() {
+		if err := RedisHDel(ConnectedKey, key); err != nil {
+			Log.Printf("RedisHDel(\"%s\", \"%s\") failed (%s)", ConnectedKey, key, err.Error())
+			// retry to delete the key
+			ConnectedKeyCh <- key
+		}
+	}()
+	// redis routine for receive pub message or error
 	redisC, psc, err := RedisSub(key)
 	if err != nil {
 		Log.Printf("RedisSub(\"%s\") failed (%s)", key, err.Error())
+		if err = responseWriter(ws, InternalErr, result); err != nil {
+			Log.Printf("responseWriter failed (%s)", err.Error())
+		}
+
 		return
 	}
-    // unsub redis
-	defer RedisUnSub(key, psc)
+	// unsub redis
+	defer func() {
+		if err := RedisUnSub(key, psc); err != nil {
+			Log.Printf("RedisUnSub(\"%s\", psc) failed (%s)", key, err.Error())
+		}
+	}()
 	// create a routine wait for client read(only closed or error) return a channel
 	netC := netRead(ws)
 	for {
@@ -130,8 +188,8 @@ func Subscribe(ws *websocket.Conn) {
 				if err = responseWriter(ws, OK, result); err != nil {
 					Log.Printf("responseWriter failed (%s)", err.Error())
 					// Restore the unsent message
-					if err = RedisPub(key, rmsg); err != nil {
-						Log.Printf("RedisPub(\"%s\", \"%s\") failed", key, msg)
+					if err = RedisRestore(key, rmsg); err != nil {
+						Log.Printf("RedisRestore(\"%s\", \"%s\") failed", key, msg)
 						return
 					}
 

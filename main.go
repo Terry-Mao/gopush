@@ -45,6 +45,8 @@ func main() {
 	runtime.GOMAXPROCS(Conf.MaxProcs)
 	// init redis
 	InitRedis()
+	// init clean connected key job
+	go CleanConnKeyJob()
 	// for test client
 	http.HandleFunc("/client", Client)
 	// sub
