@@ -12,16 +12,10 @@ var (
 func CleanConnKeyJob() {
 	for {
 		key := <-ConnectedKeyCh
-
-		for {
-			if err := RedisHDel(ConnectedKey, key); err != nil {
-				Log.Printf("RedisHDel(\"%s\", \"%s\") failed (%s)", ConnectedKey, key, err.Error())
-				// if failed, sleep 1 second and retry
-				time.Sleep(1 * time.Second)
-				continue
-			}
-
-			break
+		if err := RedisDecr(ConnectedKey, key); err != nil {
+			Log.Printf("RedisDecrBy(\"%s\", \"%s\") failed (%s)", ConnectedKey, key, err.Error())
+			// if failed, sleep 1 second and retry
+			time.Sleep(1 * time.Second)
 		}
 	}
 }

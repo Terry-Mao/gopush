@@ -112,53 +112,32 @@ func Subscribe(ws *websocket.Conn) {
 		return
 	}
 	// Generate Key
-	key = pusher.Key(key)
+	Log.Printf("Client (%s) subscribe to key %s", ws.Request().RemoteAddr, key)
 	// check multi cli connected
-	exists, err := RedisHExists(ConnectedKey, key)
-	if err != nil {
-		Log.Printf("RedisHExists(\"%s\", \"%s\") failed (%s)", ConnectedKey, key, err.Error())
-		if err = responseWriter(ws, InternalErr, result); err != nil {
-			Log.Printf("responseWriter failed (%s)", err.Error())
+	if Conf.MaxSubscriberPerKey > 0 {
+		ok, err := multiCliCheck(key)
+		if err != nil {
+			if err = responseWriter(ws, InternalErr, result); err != nil {
+				Log.Printf("responseWriter failed (%s)", err.Error())
+			}
+
+			return
 		}
 
-		return
+		defer func() {
+			if err = RedisDecr(ConnectedKey, key); err != nil {
+				Log.Printf("RedisDecr(\"%s\", \"%s\") failed (%s)", ConnectedKey, key, err.Error())
+			}
+		}()
+
+		if !ok {
+			if err = responseWriter(ws, MultiCliErr, result); err != nil {
+				Log.Printf("responseWriter failed (%s)", err.Error())
+			}
+
+			return
+		}
 	}
-
-	if exists == 1 {
-		Log.Printf("key : %s already has a client sub to", key)
-		if err = responseWriter(ws, MultiCliErr, result); err != nil {
-			Log.Printf("responseWriter failed (%s)", err.Error())
-		}
-
-		return
-	}
-	// set connected flag
-	cliNum, err := RedisHSetnx(ConnectedKey, key, "")
-	if err != nil {
-		Log.Printf("RedisHSetnx(\"%s\", \"%s\", \"\") failed (%s)", ConnectedKey, key, err.Error())
-		if err = responseWriter(ws, InternalErr, result); err != nil {
-			Log.Printf("responseWriter failed (%s)", err.Error())
-		}
-
-		return
-	}
-
-	if cliNum == 0 {
-		Log.Printf("key : %s already has a client sub to", key)
-		if err = responseWriter(ws, MultiCliErr, result); err != nil {
-			Log.Printf("responseWriter failed (%s)", err.Error())
-		}
-
-		return
-	}
-
-	defer func() {
-		if err := RedisHDel(ConnectedKey, key); err != nil {
-			Log.Printf("RedisHDel(\"%s\", \"%s\") failed (%s)", ConnectedKey, key, err.Error())
-			// retry to delete the key
-			ConnectedKeyCh <- key
-		}
-	}()
 	// redis routine for receive pub message or error
 	redisC, psc, err := RedisSub(key)
 	if err != nil {
@@ -205,6 +184,22 @@ func Subscribe(ws *websocket.Conn) {
 			}
 		}
 	}
+}
+
+func multiCliCheck(key string) (bool, error) {
+	// incr client num
+	cliNum, err := RedisIncr(ConnectedKey, key)
+	if err != nil {
+		Log.Printf("RedisIncr(\"%s\", \"%s\") failed (%s)", ConnectedKey, key, err.Error())
+		return false, err
+	}
+	// check
+	if cliNum > Conf.MaxSubscriberPerKey {
+		Log.Printf("key %s has %d subscribers exceed %d", key, cliNum, Conf.MaxSubscriberPerKey)
+		return false, nil
+	}
+
+	return true, nil
 }
 
 func netRead(ws *websocket.Conn) chan error {

@@ -32,6 +32,11 @@ func InitRedis() {
 			return c, err
 		},
 	}
+
+	if Conf.MaxSubscriberPerKey > 0 {
+		// init clean connected key job
+		go CleanConnKeyJob()
+	}
 }
 
 func RedisUnSub(key string, psc redis.PubSubConn) error {
@@ -298,6 +303,59 @@ func RedisHExists(key, field string) (int, error) {
 	}
 
 	return v, nil
+}
+
+func RedisHGet(key, field string) (int, error) {
+	c := redisPool.Get()
+	defer c.Close()
+	reply, err := c.Do("HGET", key, field)
+	if err != nil {
+		Log.Printf("c.Do(\"HGET\", \"%s\") failed (%s)", key, err.Error())
+		return 0, err
+	}
+
+	if reply == nil {
+		return -1, nil
+	}
+
+	v, err := redis.Int(reply, nil)
+	if err != nil {
+		Log.Printf("redis.Int() failed (%s)", err.Error())
+		return 0, err
+	}
+
+	return v, nil
+}
+
+func RedisIncr(key, field string) (int, error) {
+	c := redisPool.Get()
+	defer c.Close()
+	reply, err := c.Do("HINCRBY", key, field, 1)
+	if err != nil {
+		Log.Printf("c.Do(\"HINCRBY\", \"%s\", 1) failed (%s)", key, err.Error())
+		return 0, err
+	}
+
+	v, err := redis.Int(reply, nil)
+	if err != nil {
+		Log.Printf("redis.Int() failed (%s)", err.Error())
+		return 0, err
+	}
+
+	return v, nil
+}
+
+func RedisDecr(key, field string) error {
+	c := redisPool.Get()
+	defer c.Close()
+	_, err := c.Do("HINCRBY", key, field, -1)
+	if err != nil {
+		Log.Printf("c.Do(\"HINCRBY\", \"%s\", -1) failed (%s)", key, err.Error())
+		ConnectedKeyCh <- key
+		return err
+	}
+
+	return nil
 }
 
 func RedisHDel(key, field string) error {
