@@ -3,7 +3,7 @@ package main
 import (
 	"code.google.com/p/go.net/websocket"
 	"encoding/json"
-	"fmt"
+	"errors"
 	"io/ioutil"
 	"net/http"
 	"runtime/debug"
@@ -24,6 +24,7 @@ const (
 var (
 	errMsg = map[int]string{}
 	pusher Pusher
+    protocolErr = errors.New("client must not send any data")
 )
 
 type Pusher interface {
@@ -97,10 +98,6 @@ func Subscribe(ws *websocket.Conn) {
 	// get key
 	if err = websocket.Message.Receive(ws, &key); err != nil {
 		Log.Printf("websocket.Message.Receive failed (%s)", err.Error())
-		if err = responseWriter(ws, InternalErr, result); err != nil {
-			Log.Printf("responseWriter failed (%s)", err.Error())
-		}
-
 		return
 	}
 	// Auth
@@ -213,7 +210,7 @@ func netRead(ws *websocket.Conn) chan error {
 			Log.Printf("websocket.Message.Receive() failed (%s)", err.Error())
 			c <- err
 		} else {
-			c <- fmt.Errorf("client must not send any data")
+			c <- protocolErr
 		}
 		// DEBUG
 		Log.Printf("netRead routine exit")
