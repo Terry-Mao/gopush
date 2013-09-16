@@ -109,6 +109,7 @@ func Subscribe(ws *websocket.Conn) {
 		return
 	}
 	// Generate Key
+    key = pusher.Key(key)
 	Log.Printf("Client (%s) subscribe to key %s", ws.Request().RemoteAddr, key)
 	// check multi cli connected
 	if Conf.MaxSubscriberPerKey > 0 {
