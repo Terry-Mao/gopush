@@ -18,7 +18,7 @@ const (
 	OKStr          = "OK"
 	InternalErrStr = "Internal Exception"
 	AuthErrStr     = "Authentication Exception"
-	MultiCliStr    = "Mutiple Client Connected Exception"
+	MultiCliStr    = "Multiple Client Connected Exception"
 )
 
 var (
