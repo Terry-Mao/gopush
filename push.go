@@ -22,9 +22,9 @@ const (
 )
 
 var (
-	errMsg = map[int]string{}
-	pusher Pusher
-    protocolErr = errors.New("client must not send any data")
+	errMsg      = map[int]string{}
+	pusher      Pusher
+	protocolErr = errors.New("client must not send any data")
 )
 
 type Pusher interface {
@@ -109,7 +109,7 @@ func Subscribe(ws *websocket.Conn) {
 		return
 	}
 	// Generate Key
-    key = pusher.Key(key)
+	key = pusher.Key(key)
 	Log.Printf("Client (%s) subscribe to key %s", ws.Request().RemoteAddr, key)
 	// check multi cli connected
 	if Conf.MaxSubscriberPerKey > 0 {

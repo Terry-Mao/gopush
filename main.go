@@ -80,10 +80,8 @@ func main() {
 		http.HandleFunc("/pub", Publish)
 	}
 	// start listen and pending here
-	if err := http.ListenAndServe(fmt.Sprintf("%s:%d", Conf.Addr, Conf.Port), nil); err != nil {
-		Log.Printf("http.ListenAdServe(\"%s:%d\") failed (%s)", Conf.Addr, Conf.Port, err.Error())
+	if err = Listen(); err != nil {
+		Log.Printf("Listen() failed (%s)", err.Error())
 		return
 	}
-
-	Log.Printf("gopush service exit.")
 }

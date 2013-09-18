@@ -33,6 +33,7 @@ type Config struct {
 	RedisMQSize         int    `json:"redis_mqsize"`
 	MaxProcs            int    `json:"max_procs"`
 	MaxSubscriberPerKey int    `json:"max_subscriber_per_key"`
+	TCPKeepAlive        int    `json:"tcp_keepalive"`
 }
 
 func InitConfig(file string) (*Config, error) {
@@ -60,6 +61,7 @@ func InitConfig(file string) (*Config, error) {
 		RedisMQSize:         20,
 		MaxSubscriberPerKey: 0, // no limit
 		MaxProcs:            runtime.NumCPU(),
+		TCPKeepAlive:        1,
 	}
 	if err = json.Unmarshal(c, cf); err != nil {
 		Log.Printf("json.Unmarshal(\"%s\", cf) failed (%s)", string(c), err.Error())
