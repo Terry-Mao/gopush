@@ -27,7 +27,6 @@ func InitRedis() {
 			c, err := redis.Dial(Conf.RedisNetwork, Conf.RedisAddr)
 			if err != nil {
 				Log.Printf("redis.Dial(\"%s\", \"%s\") failed (%s)", Conf.RedisNetwork, Conf.RedisAddr, err.Error())
-				panic(err)
 			}
 			return c, err
 		},
