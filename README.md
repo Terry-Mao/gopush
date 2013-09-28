@@ -1,3 +1,6 @@
+# Terry-Mao/gopush2
+`Terry-Mao/gopush` is developing which don't use redis anymore, cause it's double tcp connection (redis pub/sub) waste of many memory.
+
 ## Terry-Mao/gopush
 
 `Terry-Mao/gopush` is an push server written by golang. (redis + websocket)
